@@ -1,5 +1,6 @@
 package com.example.matching_game;
 
+import androidx.annotation.ColorRes;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -7,11 +8,15 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
+import android.content.pm.ActivityInfo;
+import android.graphics.Color;
 import android.media.Image;
+import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.ImageView;
@@ -22,6 +27,7 @@ import java.util.Random;
 
 public class GameActivity extends AppCompatActivity {
     TextView player, score;
+    MediaPlayer flip_sound,button_click,cheers;
     int Score;
     int pressed_card_1;
     int pressed_card_2;
@@ -115,6 +121,7 @@ public class GameActivity extends AppCompatActivity {
         pressed_pos_2 = -1;
         Score = 0;
         score.setText("Score:" + Score);
+        score.setTextColor(Color.WHITE);
         choosed_cards = new int[8];
         n1 = 0;
         n2 = 0;
@@ -147,10 +154,15 @@ public class GameActivity extends AppCompatActivity {
     }
 
     public void CardPressed(final View v) {
+        if(flip_sound.isPlaying()){
+            flip_sound.seekTo(0);
+            flip_sound.start();
+        }
         for(int i=0;i<8;i++){
             viewing_cards[i].setEnabled(false);
         }
         //viewing_cards[Integer.parseInt(v.getTag().toString())].setImageResource(choosed_cards[pos[Integer.parseInt(v.getTag().toString())]]);
+        flip_sound.start();
         final ObjectAnimator oa1 = ObjectAnimator.ofFloat(viewing_cards[Integer.parseInt(v.getTag().toString())], "scaleX", 1f, 0f);
         final ObjectAnimator oa2 = ObjectAnimator.ofFloat(viewing_cards[Integer.parseInt(v.getTag().toString())], "scaleX", 0f, 1f);
         oa1.setInterpolator(new DecelerateInterpolator());
@@ -169,7 +181,7 @@ public class GameActivity extends AppCompatActivity {
             pressed_pos_1=Integer.parseInt(v.getTag().toString());
             viewing_cards[pressed_pos_1].setEnabled(false);
             for(int i=0;i<8;i++){
-                if(i!=pressed_pos_1)
+                if(i!=pressed_pos_1 && !opened_cards[i])
                     viewing_cards[i].setEnabled(true);
             }
         } else if (pressed_card_2 == 0) {
@@ -180,15 +192,13 @@ public class GameActivity extends AppCompatActivity {
             if (pressed_card_1 == pressed_card_2) {
                 Score++;
                 score.setText("Score: " + Score);
-                if (Score == 4) {
-                    score.setText("Press Reset to play");
-                }
+
                 opened_cards[pressed_pos_1] = true;
                 opened_cards[pressed_pos_2] = true;
                 viewing_cards[pressed_pos_2].setEnabled(false);
                 viewing_cards[pressed_pos_1].setEnabled(false);
                 for(int i=0;i<8;i++){
-                    if(i != pressed_pos_1 && i != pressed_pos_2)
+                    if(i != pressed_pos_1 && i != pressed_pos_2 && !opened_cards[i])
                         viewing_cards[i].setEnabled(true);
                 }
                 pressed_pos_1=-1;
@@ -214,10 +224,13 @@ public class GameActivity extends AppCompatActivity {
                         for(int i=0;i<8;i++){
                             viewing_cards[i].setEnabled(false);
                         }
+                        flip_sound.start();
+
                         final ObjectAnimator oaaa1 = ObjectAnimator.ofFloat(viewing_cards[pressed_pos_2], "scaleX", 1f, 0f);
                         final ObjectAnimator oaaa2 = ObjectAnimator.ofFloat(viewing_cards[pressed_pos_2], "scaleX", 0f, 1f);
                         oaaa1.setInterpolator(new DecelerateInterpolator());
                         oaaa2.setInterpolator(new AccelerateDecelerateInterpolator());
+
                         oaaa1.addListener(new AnimatorListenerAdapter() {
                             @Override
                             public void onAnimationEnd(Animator animation) {
@@ -227,6 +240,7 @@ public class GameActivity extends AppCompatActivity {
                             }
                         });
                         oaaa1.start();
+                        flip_sound.start();
                         final ObjectAnimator oaa1 = ObjectAnimator.ofFloat(viewing_cards[pressed_pos_1], "scaleX", 1f, 0f);
                         final ObjectAnimator oaa2 = ObjectAnimator.ofFloat(viewing_cards[pressed_pos_1], "scaleX", 0f, 1f);
                         oaa1.setInterpolator(new DecelerateInterpolator());
@@ -262,17 +276,29 @@ public class GameActivity extends AppCompatActivity {
                         pressed_card_1=0;
                         pressed_card_2=0;
                         for(int i=0;i<8;i++){
-                            if(!opened_cards[i])
+                            if(!opened_cards[i]) {
                                 viewing_cards[i].setEnabled(true);
+                            }
                         }
                     }
                 }.start();
 
             }
 
+            int count = 0;
+            for(int i=0;i<8;i++) {
+                if (opened_cards[i])
+                    count++;
+            }
+            if (count ==8){
+                score.setText("You WIN !!");
+                score.setTextColor(Color.GREEN);
+                cheers.start();
+            }
 
 
         }
+
     }
 
     public static void shuffle(int[] tempArr) {
@@ -290,6 +316,10 @@ public class GameActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        flip_sound = MediaPlayer.create(this,R.raw.flip_sound);
+        button_click = MediaPlayer.create(this,R.raw.button_click);
+        cheers = MediaPlayer.create(this,R.raw.cheers);
         ActionBar actionBar = getSupportActionBar();
         actionBar.hide();
         opened_cards = new boolean[8];
@@ -297,11 +327,18 @@ public class GameActivity extends AppCompatActivity {
         player = findViewById(R.id.player);
         score = findViewById(R.id.score);
         player.setText(getIntent().getStringExtra("player"));
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN);
         fetchCards();
         StartPlaying();
     }
 
     public void reset(View v) {
+        button_click.start();
+        if(cheers.isPlaying()) {
+            cheers.pause();
+            cheers.seekTo(0);
+        }
         StartPlaying();
     }
 }
